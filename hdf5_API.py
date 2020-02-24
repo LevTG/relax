@@ -149,8 +149,7 @@ class hdfAPI(File):
         g = self._get_zeroGroup(tcf, gname)
         trjCount = self.get_trjCount()
         arr = np.zeros((trjCount, *g['cf'].shape))
-
-        for i, group in zip(range(trjCount), self.group_iter(tcf, gname)):
+        for i, group in zip(range(trjCount), self.group_iter(tcf, gname, True)):
             arr[i] = group['cf']
         return arr
 
