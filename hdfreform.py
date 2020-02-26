@@ -9,24 +9,43 @@ from hdf5_API import hdfAPI
 from argparse import ArgumentParser
 
 
-def reform(file, output, tcf = '', gname = '', mean=False):
+def reform(file, output, tcf = '', gname = ''):
+    ownfile = False
     out = h5py.File(output, 'w')
 
     if not hasattr(file, 'read'):
+        ownfile = True
         file = hdfAPI(file, 'r')
 
-    for group in file.get_groupList():
-        pass
+    tcfs = tcf if tcf else file.get_tcfList()
+    groups = gname if gname else file.get_groupList()
+
+    for name in groups:
+        group = out.create_group(name)
+
+        for tcf in tcfs:
+            if not file._get_zeroGroup(tcf, name):
+                continue
+            gtcf = group.create_group(tcf)
+            gtcf.attrs['group_size'] = file._get_zeroGroup(tcf, name)['group_size'][()]
+            gtcf.attrs['names'] = file.get_names(tcf, name)
+
+            mean, std = file.mean_tcf(tcf, name)
+            gtcf.create_dataset("mean_{}".format(tcf), data=mean)
+            gtcf.create_dataset("errs_{}".format(tcf), data=std)
+
+    if ownfile:
+        file.close()
+    out.close()
 
 def main():
     parser = ArgumentParser()
     parser.add_argument("filename", type=str)
     parser.add_argument('-o', '--output', required=False, type=str, default='out')
-    parser.add_argument('--tcf', required=True, type=str)
+    parser.add_argument('--tcf', required=False, nargs='*', default='')
     parser.add_argument('-g', '--gname', required=False, nargs='*', default='')
-    parser.add_argument('-m', '--mean', required=False, action="store_true")
     args = parser.parse_args()
-    ex_TcfNpy(args.filename, args.output, args.tcf, args.gname, args.mean)
+    reform(args.filename, args.output, args.tcf, args.gname)
 
 if __name__ == '__main__':
     main()
