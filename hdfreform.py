@@ -20,6 +20,7 @@ def reform(file, output, tcf = '', gname = ''):
     tcfs = tcf if tcf else file.get_tcfList()
     groups = gname if gname else file.get_groupList()
 
+    out.create_dataset('time', data=file.get_time())
     for name in groups:
         group = out.create_group(name)
 
