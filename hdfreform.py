@@ -32,8 +32,8 @@ def reform(file, output, tcf = '', gname = ''):
             gtcf.attrs['names'] = file.get_names(tcf, name)
 
             mean, std = file.mean_tcf(tcf, name)
-            gtcf.create_dataset("mean_{}".format(tcf), data=mean)
-            gtcf.create_dataset("errs_{}".format(tcf), data=std)
+            gtcf.create_dataset("mean", data=mean)
+            gtcf.create_dataset("errs", data=std)
 
     if ownfile:
         file.close()

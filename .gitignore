@@ -1,5 +1,6 @@
 *.todo
 *.pyc
 *.npy
+*.hdf5
 *_pairs.txt
 config_tmp
