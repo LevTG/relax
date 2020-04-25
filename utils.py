@@ -1,46 +1,54 @@
 import re
-import h5py
+import copy
 import numpy as np
+import math as m
+
+# line for comments
+comment_line_re = re.compile(r'^[\s\w\W]*\;(?P<comment>[\w\d\s]*)$')
 
 
-# ftype - [npy, hdf5, csv]
-# perm -  [w, r]
-def get_fid(file, ftype, perm):
-    own_fid = False
-    if isinstance(file, basestring):
-        if not file.endswith('.{}'.format(ftype)):
-            file = file + '.{}'.format(ftype)
-        if ftype == 'npy':
-            fid = open(file, "{}b".format(perm))
-        elif ftype == 'hdf5':
-            fid = h5py.File(file, perm)
-        elif ftype == 'csv':
-            fid = open(file, perm)
-
-        own_fid = True
-    elif is_pathlib_path(file):
-        if not file.name.endswith('.'.format(ftype)):
-            file = file.parent / (file.name + '.{}'.format(ftype))
-            if ftype == 'npy':
-                fid = file.open("{}b".format(perm))
-            elif ftype == 'hdf5':
-                fid = h5py.File(file, perm)
-            elif ftype == 'csv':
-                fid = file.open(perm)
-        own_fid = True
-    else:
-        fid = file
-    return fid, own_fid
+def split_comments(file):
+    i = 0
+    for line in file:
+        line = re.sub(r'\;[\w\W\s]*$', '', line).strip()
+        if line == '':
+            continue
+        yield line, i + 1
+        i += 1
 
 
-def splitCamelCase(name, toLowerCase=True):
-    found = re.sub('([A-Z][a-z]+)', r' \1', re.sub('([A-Z]+)', r' \1', name))
-    if toLowerCase:
-        found = found.lower()
-    return found.split()
+def not_full_list(list_):
+    for elem in list_:
+        if elem is None:
+            return True
+    return False
 
-def create_nameArray(shape, namesList, dtype=float):
-    ds_dt = np.dtype({'names':namesList,'formats':[dtype]*len(namesList) })
-    data = np.zeros((len(namesList), shape))
-    rec_arr = np.rec.fromarrays(data, dtype=ds_dt)
-    return rec_arr
+
+def not_full_dict(dict_):
+    for el in dict_.values():
+        if el is None:
+            return True
+    return False
+
+
+def join_lists(*lists):
+    add = lambda x, y: x if x is not None else y
+    all_lists = [None] * len(lists)
+    for clist in lists:
+        all_lists = list(map(add, all_lists, clist))
+    return all_lists
+
+
+def load_np(md_count, fd):
+    for i in range(md_count):
+        yield np.load(fd)
+
+
+def get_ncopy(obj, n):
+    for _ in range(n):
+        yield copy.deepcopy(obj)
+
+
+def near_2pow(n):
+    power = m.ceil(m.log(n, 2))
+    return 2 ** power

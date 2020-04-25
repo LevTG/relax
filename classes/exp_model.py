@@ -1,7 +1,7 @@
 import numpy as np
 
-from lmfit import Model
 from lmfit.models import ConstantModel, ExponentialModel
+from lmfit import Model
 
 
 def exp(x, A, T):
@@ -10,13 +10,11 @@ def exp(x, A, T):
 
 class CModel(Model):
     """docstring for CModel"""
-    def __init__(self, nexp=0, moddef=" "):
-        self.definition = moddef
+    def __init__(self, nexp=0):
         self.model = ConstantModel()
         self.nexp = 0
         self.errors = None
-        self.params = None
-        self.res = None
+        self.model_fit = None
         for _ in range(nexp):
             self.add_exp()
 
@@ -36,29 +34,38 @@ class CModel(Model):
             self.model.set_param_hint(currT, value=1.0, min=0)
             cntrl_expr += ' + ' + currA
 
-        self.params = self.model.make_params()
-        self.params.add('cntrl', value=1, min=1-1e-5, max=1+1e-5)
-        self.params['cntrl'].vary = True
-        self.params['cntrl'].expr = cntrl_expr
+        pars = self.model.make_params()
+        pars.add('cntrl', value=1, min=1-1e-5, max=1+1e-5)
+        pars['cntrl'].vary = True
+        pars['cntrl'].expr = cntrl_expr
+        return pars
 
     def fit(self, *args, **kwargs):
         try:
-            self.prep_params()
-            self.res = self.model.fit(params=self.params, *args, **kwargs)
+            res = self.model.fit(*args, **kwargs)
+            self.model_fit = res
         except Exception as e:
-            print("Undefined exception while fit: {} {}".format(type(e), e), file=sys.stderr)
+            print("Undefined exception while fit: {} {}".format(type(e), e))
             raise
-        return self.res
+        return self
 
-    def has_covar(self):
-        covar = self.res.covar
-        if covar is None or np.isnan(np.sum(covar)):
+    def check_errs(self):
+        model_fit = self.model_fit
+        try:
+            covar = model_fit.covar
+            if covar is None or np.isnan(np.sum(covar)):
+                return True
+            self.errors = np.sqrt(np.diag(model_fit.covar))
+            for (param, val), err in zip(model_fit.best_values.items(), self.errors):
+                if val < err:
+                    return True
             return False
-        else:
-            return True
+        except Exception as e:
+            print("Undefined exception while check: {} {}".format(type(e), e))
+            raise
 
     def report(self):
-        return self.res.fit_report(), self.res.covar
+        return self.model_fit.fit_report(), self.model_fit.covar
 
 
 Prefixes = {
@@ -67,9 +74,5 @@ Prefixes = {
     3: 'c',
     4: 'd',
     5: 'e',
-    6: 'f',
-    7: 'g',
-    8: 'h',
-    9: 'i',
-    10: 'j'
+    6: 'f'
 }
