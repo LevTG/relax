@@ -6,13 +6,13 @@ import numpy as np
 import logging as log
 import matplotlib.pyplot as plt
 
-from fitter.exp_model import CModel
+from fitter.exp_model import CModel, Prefixes
 from fitter.fit_res import FitResult
 from fitinfo import FitInfo
 
-BASE_VAL = np.array([0.1, 1, 0.01, 10, 0.01, 50, 0.01,
-                     100, 0.01, 1000, 0.01, 2000, 0.01,
-                     3000, 0.01, 4000, 0.01, 5000, 0.01])
+BASE_VAL = np.array([0.1, 0.01, 5,    0.01, 10, 0.001, 50,
+                          0.01, 100,  0.01, 1000, 0.01, 2000,
+                          0.01, 3000, 0.01, 4000, 0.01, 5000])
 BASE_KEY = ('c', 'aamplitude', 'adecay', 'bamplitude', 'bdecay', 'camplitude', 'cdecay',
             'damplitude', 'ddecay', 'eamplitude', 'edecay', 'famplitude', 'fdecay',
             'gamplitude', 'gdecay','hamplitude', 'hdecay','iamplitude', 'idecay')
@@ -46,18 +46,24 @@ def create_logger(log_filename='fitLog.log', mode='i'):
     return loggy
 
 class Fitter:
-    def __init__(self, minexp=4, maxexp=6, randFactor=(.2, 5), ntry=5, tcf_type='acf', logger=print):
+    def __init__(self, **kwargs):
+        #minexp=4, maxexp=6, randFactor=(.2, 5), ntry=5, tcf_type='acf', logger=print):
+        self.minexp = kwargs['minexp'] if 'minexp' in kwargs else 4
+        self.maxexp = kwargs['maxexp'] if 'maxexp' in kwargs else 6
+        self.ntry  = kwargs['ntry'] if 'ntry' in kwargs else 5
+        self.tcf_type = kwargs['tcf_type'] if 'tcf_type' in kwargs else 'acf'
+        self.randFactor = kwargs['randFactor'] if 'randFactor' in kwargs else (.2, 5)
+        self.logger = kwargs['logger'] if 'logger' in kwargs else print
+        self.sum_one_flag = kwargs['sum_one'] if 'sum_one' in kwargs else False
+
         self.model = None
-        self.ntry  = ntry
-        self.randFactor  = randFactor
-        self.expInterval = (minexp, maxexp)
+        self.expInterval = (self.minexp, self.maxexp)
 
         self.name_string = "Unnamed data"
         self.data = None
         self.std  = None
         self.time = None
 
-        self.tcf_type = tcf_type
         self.cexp = 0
         self.params  = None
         self.init_values = None
@@ -66,7 +72,6 @@ class Fitter:
         self.anyResult = False
 
         self.fitInfos = [None] * self.nexp
-        self.logger = logger
         self.log_info = create_logger(mode='d')
         self.verbose_mode = None
         # self.log_test()
@@ -121,7 +126,7 @@ class Fitter:
     ## Prepare to Fit
     def prep_model(self):
         self.cexp = self.expInterval[0]
-        self.model = CModel(self.expInterval[0])
+        self.model = CModel(self.expInterval[0], self.sum_one_flag)
         self.init_values = dict(zip(BASE_KEY[:(2*self.nexp + 1)], c.copy(BASE_VAL[:(2*self.nexp + 1)])))
 
 
@@ -132,7 +137,7 @@ class Fitter:
         self.time = timeline
         self.name_string = "Unnamed data" if not 'name_string' in kwargs else kwargs['name_string']
         if method == 'NexpNtry':
-            self.fit_NtryNexp(*args, **kwargs)
+            self.fit_NtryNexp()
         else:
             self.log_info.error('ERROR!! Method should be NexpNtry')
 
@@ -148,7 +153,7 @@ class Fitter:
         #################
         return self.model.fit(data=y, x=x, method='least_squares', weights=1/self.std, nan_policy='omit', scale_covar=False, **init_values, tcf_type=self.tcf_type)
 
-    def fit_NtryNexp(self, **kwargs):
+    def fit_NtryNexp(self):
         self.prep_model()
         bestFit_ntry = None
         success_ntry = False
@@ -165,7 +170,7 @@ class Fitter:
                     if self.cexp == self.expInterval[1]:
                         self.save_result(fit_ntry, success_ntry)
                         if bestFit_ntry:
-                            self.log_info.info("{}: Best CHISQR = {:8.4f}".format(self.name_string, bestFit_ntry.chisqr))
+                            self.log_info.info("{}: Best CHISQR = {:10.4f}".format(self.name_string, bestFit_ntry.chisqr))
                         else:
                             self.log_info.warning("{}: NO RESULT FOUND".format(self.name_string))
             except AttributeError as e:
@@ -191,7 +196,7 @@ class Fitter:
 
             name_string_exp_try = "{} exp{:<2} - try{:<2}".\
                 format(self.name_string, self.cexp, itry + 1)
-            chi_sqr_string = "CHISQR= {:8.4f}".format(fit_once.chisqr)
+            chi_sqr_string = "CHISQR= {:10.4f}".format(fit_once.chisqr)
             info_string = ""
             if not self.model.has_covar():
                 info_string = "-- No covariance matrix in result"
@@ -211,7 +216,13 @@ class Fitter:
         name_string_exp = "{} exp{:<2}". \
             format(self.name_string, self.cexp)
         if bestFit_once:
-            self.log_info.info("{}: fit_report() is: {}".format(name_string_exp, bestFit_once.fit_report()))
+            self.log_info.info("{}: fit_report() is:\n{}".format(name_string_exp, bestFit_once.fit_report()))
+            params = bestFit_once.best_values
+            summ_of_amplitudes = params['c']
+            for e in range(1, self.cexp + 1):
+                summ_of_amplitudes += params['{}amplitude'.format(Prefixes[e])]
+            self.log_info.info("Sum of amplitudes = {}".format(summ_of_amplitudes))
+
         else:
             self.log_info.info("{}: NO RESULT".format(name_string_exp))
         return bestFit_once, success_once
@@ -220,7 +231,7 @@ class Fitter:
         # rndmizer = np.random.default_rng()
         rndmizer = np.random.RandomState()
         new_val = c.copy(BASE_VAL)
-        new_val[1::2] = new_val[1::2] * rndmizer.uniform(*self.randFactor)
+        new_val[2::2] = new_val[2::2] * rndmizer.uniform(*self.randFactor)
         self.init_values = dict(zip(BASE_KEY[:(2*self.cexp + 1)], new_val[:(2*self.cexp + 1)]))
 
     def save_result(self, result, successRate):

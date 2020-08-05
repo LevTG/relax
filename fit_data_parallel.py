@@ -20,6 +20,7 @@ NCPU = cpu_count()
 #os.system("taskset -p 0xff %d" % os.getpid())
 
 def load_data(args, group):
+    (time, func, errs, names) = (None, None, None, None)
     if args.type == 'npy':
         with open(args.filename, 'rb') as fd:
 
@@ -27,7 +28,7 @@ def load_data(args, group):
             func = np.load(fd)
             errs = np.load(fd)
 
-            errs[:, 0] = errs[:, 1]
+            #errs[:, 0] = errs[:, 1]
             names = [str(i) for i in range(func.shape[0])]
 
 
@@ -50,14 +51,21 @@ def load_data(args, group):
             names = fd[group][args.tcf].attrs['names']
             names = names.splitlines()
             errs[:, 0] = errs[:, 1]
-    else:
-        (time, func, errs, names) = (None, None, None, None)
     return time, func, errs, names
 
-def prepare_data(time, data, errs, time_cut):
-    step = time[1] - time[0]
-    space_to_del = int(time_cut // step)
-    idx_del = np.arange(1, space_to_del + 1)
+def prepare_data(time, data, errs, time_cut, sum_one_flag=False):
+    last_point_to_del = 0
+    for i, t in enumerate(time):
+        if t >= time_cut:
+            last_point_to_del = i
+            break
+    #while time[point_cut]<time_cut:
+    #    point_cut += 1
+    #step = time[1] - time[0]
+    #space_to_del = int(time_cut // step)
+    start_point_to_del = 1 if sum_one_flag else 0
+    idx_del = np.arange(start_point_to_del, last_point_to_del)
+    print("idx_del= {}".format(idx_del))
     time = np.delete(time, idx_del)
     data = np.delete(data, idx_del, axis=1)
     errs = np.delete(errs, idx_del, axis=1)
@@ -85,7 +93,7 @@ def pool_fit_one(args):
 def main():
     parser = ArgumentParser()
     parser.add_argument("filename", type=str)
-    parser.add_argument('-t', '--type', default='npy', help="Type of using datafile. Can be: \'npy\', \'csv\', \'hdf\'")
+    parser.add_argument('-t', '--type', default='hdf', help="Type of using datafile. Can be: \'npy\', \'csv\', \'hdf\' (default)")
     parser.add_argument('-i', '--idata', type=str, help='index in data array for fit, e.g. 0-1')
     parser.add_argument('-s', '--exp-start', default=4, type=int, help='Number of exponents to start from')
     parser.add_argument('-f', '--exp-finish', default=6, type=int, help='Number of exponents when finish')
@@ -94,8 +102,9 @@ def main():
     parser.add_argument('-g', '--group', nargs='*', default=['NH'], help='Which group you want to fit. Need to fit data from hdf')
     parser.add_argument('--tcf', default='acf', help='Need to fit data from hdf')
     parser.add_argument('-o', '--output', default='out.hdf', help='filename for saving results')
-    parser.add_argument('-c', '--time-cut', default=0, type=float,\
+    parser.add_argument('-c', '--time-cut', default=3.0, type=float,
                          help='time in ps which need to be cut from timeline')
+    parser.add_argument('-1','--sum-one', action='store_true', help='Constrain the sum of all amplitudes to be exactly one (1.000) for ACFs')
     parser.add_argument('--nc',type=int, help='number of cpu (DEBUG)')
     # parser.add_argument('--lm', required=False, action='store_true', help='enable silent mode (DEBUG)')
     args = parser.parse_args()
@@ -105,14 +114,14 @@ def main():
     start=t.monotonic()
     for group in args.group:
         fitMod = Fitter(minexp=args.exp_start, maxexp=args.exp_finish,
-                        ntry=args.ntry, tcf_type=args.tcf)
+                        ntry=args.ntry, tcf_type=args.tcf, sum_one=args.sum_one)
         counter.set_curMethod(args.method)
         counter.set_curTcf(args.tcf)
         counter.set_curGroup(group)
 
         try:
             time, data, errs, names = load_data(args, group)
-            time, data, errs = prepare_data(time, data, errs, args.time_cut)
+            time, data, errs = prepare_data(time, data, errs, args.time_cut, args.sum_one)
         except Exception as e:
             print(e)
             continue

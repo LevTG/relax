@@ -38,20 +38,21 @@ class FitResult():
         self._param_errs = np.sqrt(np.diag(self._covar))
 
     def sort_covar(self):
-        print("sort_covar started")
+        #print("sort_covar started")
         idx = []
         for ref_par, _ in zip(REFERENCE_PARAMS_SEQ, self._covar_names):
             idx.append(self._covar_names.index(ref_par))
-        print("sort_covar: _covar_names = {}".format(self._covar_names))
-        print("sort_covar: idx = {}".format(idx))
+        #print("sort_covar: _covar_names = {}".format(self._covar_names))
+        #print("sort_covar: idx = {}".format(idx))
         new_covar = self.covar[idx]
         new_covar = new_covar[:, idx]
         self.covar = new_covar
 
     def sort_vals(self, params):
         par_vals = np.zeros(len(params))
-        for par_key, i in zip(REFERENCE_PARAMS_SEQ, range(len(params))):
-            par_vals[i] = params[par_key]
+        for i, par_key in enumerate(REFERENCE_PARAMS_SEQ):
+            if par_key in params:
+                par_vals[i] = params[par_key]
         return par_vals
 
 
@@ -117,18 +118,18 @@ class FitResult():
         return "Fit Result: " + output
 
     def __str__(self):
-        output = "Результаты фита\n"
-        output += 'Число экспонент: {}\n'.format(self.nexp)
+        output = "Fit results\n"
+        output += 'Number of exponents: {}\n'.format(self.nexp)
         # output += 'Используемый метод: {}\n'.format(self.model)
-        output += 'Параметры: {}\n'.format(self._param_names)
-        output += 'Начальные значения параметров: {}\n'.format(self.initialValues)
+        output += 'Parameters: {}\n'.format(self._param_names)
+        output += 'Initial values of the parameters: {}\n'.format(self.initialValues)
 
         if self.success:
-            output += 'Выписывание прошло успешно\n'
-            output += 'Полученные значения параметров: {}\n'.format(self._param_vals)
-            output += 'Ковариационная матрица:\n{}\n'.format(self.covar)
-            output += 'Порядок значений в ковариацианной матрице:\n{}\n'.format(self._covar_names)
-            output += 'Статистики: {}\n'.format(self.stats)
+            output += 'Successfull fitting\n'
+            output += 'Parameters are found: {}\n'.format(self._param_vals)
+            output += 'Covariance matrix is found:\n{}\n'.format(self.covar)
+            output += 'Order of parameters in covariance matrix:\n{}\n'.format(self._covar_names)
+            output += 'Statistics: {}\n'.format(self.stats)
         else:
-            output += 'Не удалось выполнить вписывание\n'
+            output += 'Fitting failed\n'
         return output

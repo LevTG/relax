@@ -5,9 +5,8 @@ import numpy as np
 
 from argparse import ArgumentParser
 
-PARAMS_SEQ = ['c', 'aamplitude', 'adecay', 'bamplitude', 'bdecay', 'camplitude', 'cdecay',
-            'damplitude', 'ddecay', 'eamplitude', 'edecay', 'famplitude', 'fdecay',
-            'gamplitude', 'gdecay','hamplitude', 'hdecay','iamplitude', 'idecay']
+from fitter.fit_res import REFERENCE_PARAMS_SEQ
+
 
 def main():
     parser = ArgumentParser()
@@ -29,7 +28,7 @@ def main():
         covar = tcf['exp{}'.format(exp)]['covar'][args.idata]
         errors = np.sqrt(np.diag(covar))
 
-        for name, val, err in zip(PARAMS_SEQ, values, errors):
+        for name, val, err in zip(REFERENCE_PARAMS_SEQ, values, errors):
             print("{:11} : {:13.6f} +/- {:13.6f}".format(name, val, err))
         print('\n')
 
