@@ -38,12 +38,9 @@ class FitResult():
         self._param_errs = np.sqrt(np.diag(self._covar))
 
     def sort_covar(self):
-        print("sort_covar started")
         idx = []
         for ref_par, _ in zip(REFERENCE_PARAMS_SEQ, self._covar_names):
             idx.append(self._covar_names.index(ref_par))
-        print("sort_covar: _covar_names = {}".format(self._covar_names))
-        print("sort_covar: idx = {}".format(idx))
         new_covar = self.covar[idx]
         new_covar = new_covar[:, idx]
         self.covar = new_covar
